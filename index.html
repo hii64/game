@@ -2,57 +2,50 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<title>オセロゲーム（リバーシ）</title>
+<title>オセロ（自分 vs AI）</title>
 <style>
-  body { font-family: Arial, sans-serif; text-align: center; }
+  body { font-family: sans-serif; text-align: center; }
   table { border-collapse: collapse; margin: 20px auto; }
   td {
     width: 40px; height: 40px;
-    border: 1px solid #333;
+    border: 1px solid #444;
     background-color: green;
     cursor: pointer;
-    position: relative;
   }
   .black, .white {
+    width: 30px; height: 30px;
     border-radius: 50%;
-    width: 32px; height: 32px;
-    margin: 3px auto;
+    margin: auto;
+    margin-top: 4px;
   }
   .black { background-color: black; }
   .white { background-color: white; }
-  #message { font-size: 1.2em; margin: 10px; }
-  #passBtn {
-    margin-top: 10px;
-    padding: 5px 10px;
-    font-size: 1em;
-  }
+  #message { font-size: 1.2em; margin-top: 10px; }
 </style>
 </head>
 <body>
 
-<h1>オセロゲーム（リバーシ）</h1>
-<div id="message">黒のターンです</div>
+<h1>オセロ（あなた vs AI）</h1>
+<div id="message">あなたの番（黒）です</div>
 <table id="board"></table>
-<button id="passBtn" onclick="passTurn()">パス</button>
 
 <script>
-  const BOARD_SIZE = 8;
+  const SIZE = 8;
   const EMPTY = 0, BLACK = 1, WHITE = 2;
   let board = [];
   let currentPlayer = BLACK;
 
-  const directions = [
-    [-1, -1], [-1, 0], [-1, 1],
-    [0, -1],           [0, 1],
-    [1, -1],  [1, 0],  [1, 1]
-  ];
-
   const boardElem = document.getElementById('board');
   const messageElem = document.getElementById('message');
-  const passBtn = document.getElementById('passBtn');
+
+  const directions = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1],          [0, 1],
+    [1, -1], [1, 0],  [1, 1]
+  ];
 
   function initBoard() {
-    board = Array.from({length: BOARD_SIZE}, () => Array(BOARD_SIZE).fill(EMPTY));
+    board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
     board[3][3] = WHITE;
     board[3][4] = BLACK;
     board[4][3] = BLACK;
@@ -61,13 +54,13 @@
 
   function createBoard() {
     boardElem.innerHTML = '';
-    for (let x=0; x<BOARD_SIZE; x++) {
+    for (let x = 0; x < SIZE; x++) {
       const row = document.createElement('tr');
-      for (let y=0; y<BOARD_SIZE; y++) {
+      for (let y = 0; y < SIZE; y++) {
         const cell = document.createElement('td');
         cell.dataset.x = x;
         cell.dataset.y = y;
-        cell.addEventListener('click', () => handleClick(x,y));
+        cell.addEventListener('click', () => handlePlayerMove(x, y));
         row.appendChild(cell);
       }
       boardElem.appendChild(row);
@@ -76,8 +69,8 @@
   }
 
   function updateBoard() {
-    for (let x=0; x<BOARD_SIZE; x++) {
-      for (let y=0; y<BOARD_SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      for (let y = 0; y < SIZE; y++) {
         const cell = boardElem.rows[x].cells[y];
         cell.innerHTML = '';
         if (board[x][y] === BLACK) {
@@ -91,60 +84,48 @@
         }
       }
     }
-    if (isGameOver()) {
-      const [blackCount, whiteCount] = countDiscs();
-      if (blackCount > whiteCount) {
-        messageElem.textContent = `ゲーム終了！黒の勝ちです！ B:${blackCount} W:${whiteCount}`;
-      } else if (whiteCount > blackCount) {
-        messageElem.textContent = `ゲーム終了！白の勝ちです！ B:${blackCount} W:${whiteCount}`;
-      } else {
-        messageElem.textContent = `ゲーム終了！引き分けです！ B:${blackCount} W:${whiteCount}`;
-      }
-      passBtn.disabled = true;
-    } else {
-      messageElem.textContent = (currentPlayer === BLACK ? '黒' : '白') + 'のターンです';
-      passBtn.disabled = validMoves(currentPlayer).length > 0 ? false : true;
-    }
   }
 
-  function onBoard(x,y) {
-    return x>=0 && x<BOARD_SIZE && y>=0 && y<BOARD_SIZE;
+  function isOnBoard(x, y) {
+    return x >= 0 && x < SIZE && y >= 0 && y < SIZE;
   }
 
-  function opponent(player) {
-    return player === BLACK ? WHITE : BLACK;
+  function opponent(p) {
+    return p === BLACK ? WHITE : BLACK;
   }
 
-  function wouldFlip(x, y, player) {
+  function getFlips(x, y, player) {
     if (board[x][y] !== EMPTY) return [];
     let flips = [];
     for (const [dx, dy] of directions) {
       let nx = x + dx, ny = y + dy;
-      let tempFlips = [];
-      while (onBoard(nx, ny) && board[nx][ny] === opponent(player)) {
-        tempFlips.push([nx, ny]);
+      let line = [];
+      while (isOnBoard(nx, ny) && board[nx][ny] === opponent(player)) {
+        line.push([nx, ny]);
         nx += dx;
         ny += dy;
       }
-      if (onBoard(nx, ny) && board[nx][ny] === player && tempFlips.length > 0) {
-        flips = flips.concat(tempFlips);
+      if (isOnBoard(nx, ny) && board[nx][ny] === player && line.length > 0) {
+        flips = flips.concat(line);
       }
     }
     return flips;
   }
 
-  function validMoves(player) {
+  function getValidMoves(player) {
     let moves = [];
-    for (let x=0; x<BOARD_SIZE; x++) {
-      for (let y=0; y<BOARD_SIZE; y++) {
-        if (wouldFlip(x,y,player).length > 0) moves.push([x,y]);
+    for (let x = 0; x < SIZE; x++) {
+      for (let y = 0; y < SIZE; y++) {
+        if (getFlips(x, y, player).length > 0) {
+          moves.push([x, y]);
+        }
       }
     }
     return moves;
   }
 
-  function makeMove(x,y,player) {
-    let flips = wouldFlip(x,y,player);
+  function makeMove(x, y, player) {
+    const flips = getFlips(x, y, player);
     if (flips.length === 0) return false;
     board[x][y] = player;
     for (const [fx, fy] of flips) {
@@ -153,53 +134,82 @@
     return true;
   }
 
+  function handlePlayerMove(x, y) {
+    if (currentPlayer !== BLACK) return;
+    if (!makeMove(x, y, BLACK)) return;
+    currentPlayer = WHITE;
+    updateBoard();
+    if (checkGameOver()) return;
+    setTimeout(aiTurn, 500);
+  }
+
+  function aiTurn() {
+    const moves = getValidMoves(WHITE);
+    if (moves.length === 0) {
+      currentPlayer = BLACK;
+      updateMessage();
+      return;
+    }
+    // AI: ランダムな手を選ぶ
+    const [x, y] = moves[Math.floor(Math.random() * moves.length)];
+    makeMove(x, y, WHITE);
+    currentPlayer = BLACK;
+    updateBoard();
+    checkGameOver();
+  }
+
+  function checkGameOver() {
+    const blackMoves = getValidMoves(BLACK);
+    const whiteMoves = getValidMoves(WHITE);
+
+    if (blackMoves.length === 0 && whiteMoves.length === 0) {
+      const [b, w] = countDiscs();
+      if (b > w) {
+        messageElem.textContent = `ゲーム終了：あなた（黒）の勝ち！ B:${b} W:${w}`;
+      } else if (w > b) {
+        messageElem.textContent = `ゲーム終了：AI（白）の勝ち！ B:${b} W:${w}`;
+      } else {
+        messageElem.textContent = `引き分け！ B:${b} W:${w}`;
+      }
+      return true;
+    }
+
+    if (currentPlayer === BLACK && blackMoves.length === 0) {
+      alert("あなたはパスされました。");
+      currentPlayer = WHITE;
+      setTimeout(aiTurn, 500);
+      return false;
+    }
+
+    if (currentPlayer === WHITE && whiteMoves.length === 0) {
+      alert("AIはパスしました。");
+      currentPlayer = BLACK;
+      updateMessage();
+      return false;
+    }
+
+    updateMessage();
+    return false;
+  }
+
   function countDiscs() {
-    let blackCount = 0, whiteCount = 0;
-    for (let x=0; x<BOARD_SIZE; x++) {
-      for (let y=0; y<BOARD_SIZE; y++) {
-        if (board[x][y] === BLACK) blackCount++;
-        else if (board[x][y] === WHITE) whiteCount++;
+    let b = 0, w = 0;
+    for (let x = 0; x < SIZE; x++) {
+      for (let y = 0; y < SIZE; y++) {
+        if (board[x][y] === BLACK) b++;
+        if (board[x][y] === WHITE) w++;
       }
     }
-    return [blackCount, whiteCount];
+    return [b, w];
   }
 
-  function isGameOver() {
-    return validMoves(BLACK).length === 0 && validMoves(WHITE).length === 0;
+  function updateMessage() {
+    messageElem.textContent = currentPlayer === BLACK ? 'あなたの番（黒）です' : 'AIの番（白）です';
   }
 
-  function handleClick(x,y) {
-    if (makeMove(x,y,currentPlayer)) {
-      currentPlayer = opponent(currentPlayer);
-      if (validMoves(currentPlayer).length === 0) {
-        alert((currentPlayer === BLACK ? '黒' : '白') + 'は置ける場所がありません。パスします。');
-        currentPlayer = opponent(currentPlayer);
-        if (validMoves(currentPlayer).length === 0) {
-          // ゲーム終了
-          updateBoard();
-          return;
-        }
-      }
-      updateBoard();
-    } else {
-      alert("そこには置けません。");
-    }
-  }
-
-  function passTurn() {
-    if (validMoves(currentPlayer).length === 0) {
-      currentPlayer = opponent(currentPlayer);
-      alert((currentPlayer === BLACK ? '黒' : '白') + 'のターンになりました。');
-      updateBoard();
-    } else {
-      alert("置ける場所があるのでパスできません。");
-    }
-  }
-
-  // 初期化
+  // スタート！
   initBoard();
   createBoard();
-  updateBoard();
 </script>
 
 </body>
