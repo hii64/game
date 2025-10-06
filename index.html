@@ -1,0 +1,108 @@
+# オセロゲーム（リバーシ） コンソール版
+
+EMPTY = '.'
+BLACK = 'B'
+WHITE = 'W'
+
+DIRECTIONS = [(-1, -1), (-1, 0), (-1, 1),
+              (0, -1),          (0, 1),
+              (1, -1),  (1, 0), (1, 1)]
+
+def init_board():
+    board = [[EMPTY]*8 for _ in range(8)]
+    board[3][3] = WHITE
+    board[3][4] = BLACK
+    board[4][3] = BLACK
+    board[4][4] = WHITE
+    return board
+
+def print_board(board):
+    print("  " + " ".join(str(i) for i in range(8)))
+    for i, row in enumerate(board):
+        print(str(i) + " " + " ".join(row))
+    print()
+
+def on_board(x, y):
+    return 0 <= x < 8 and 0 <= y < 8
+
+def opponent(player):
+    return BLACK if player == WHITE else WHITE
+
+def valid_moves(board, player):
+    moves = []
+    for x in range(8):
+        for y in range(8):
+            if board[x][y] == EMPTY and would_flip(board, player, x, y):
+                moves.append((x, y))
+    return moves
+
+def would_flip(board, player, x, y):
+    flips = []
+    for dx, dy in DIRECTIONS:
+        nx, ny = x + dx, y + dy
+        temp_flips = []
+        while on_board(nx, ny) and board[nx][ny] == opponent(player):
+            temp_flips.append((nx, ny))
+            nx += dx
+            ny += dy
+        if on_board(nx, ny) and board[nx][ny] == player and temp_flips:
+            flips.extend(temp_flips)
+    return flips
+
+def make_move(board, player, x, y):
+    flips = would_flip(board, player, x, y)
+    if not flips:
+        return False
+    board[x][y] = player
+    for fx, fy in flips:
+        board[fx][fy] = player
+    return True
+
+def game_over(board):
+    return not valid_moves(board, BLACK) and not valid_moves(board, WHITE)
+
+def count_discs(board):
+    black_count = sum(row.count(BLACK) for row in board)
+    white_count = sum(row.count(WHITE) for row in board)
+    return black_count, white_count
+
+def main():
+    board = init_board()
+    player = BLACK
+
+    while not game_over(board):
+        print_board(board)
+        moves = valid_moves(board, player)
+        if moves:
+            print(f"{player} のターンです。可能な手: {moves}")
+            while True:
+                try:
+                    move = input(f"置く場所を '行 列' の形式で入力してください（例: 2 3）: ")
+                    if move.lower() == 'quit':
+                        print("ゲームを終了します。")
+                        return
+                    x, y = map(int, move.strip().split())
+                    if (x, y) in moves:
+                        make_move(board, player, x, y)
+                        break
+                    else:
+                        print("そこには置けません。もう一度入力してください。")
+                except Exception:
+                    print("入力形式が間違っています。もう一度入力してください。")
+        else:
+            print(f"{player} は置ける場所がありません。パスします。")
+
+        player = opponent(player)
+
+    print_board(board)
+    black_count, white_count = count_discs(board)
+    print(f"ゲーム終了！B: {black_count}, W: {white_count}")
+    if black_count > white_count:
+        print("黒(B)の勝ちです！")
+    elif white_count > black_count:
+        print("白(W)の勝ちです！")
+    else:
+        print("引き分けです！")
+
+if __name__ == "__main__":
+    main()
